@@ -66,18 +66,124 @@ private:
         return nodo;
     }
 
-    Album* buscar(Album* nodo, const std::string& titulo) {
-        if (!nodo) return nullptr;
-        if (titulo == nodo->titulo) return nodo;
-        if (titulo < nodo->titulo) return buscar(nodo->izquierda, titulo);
-        return buscar(nodo->derecha, titulo);
-    }
-
     void inOrder(Album* nodo, std::vector<Album*>& resultado) {
         if (!nodo) return;
         inOrder(nodo->izquierda, resultado);
         resultado.push_back(nodo);
         inOrder(nodo->derecha, resultado);
+    }
+
+        void liberarMemoria(Album* nodo) {
+        if (!nodo) return;
+        liberarMemoria(nodo->izquierda);
+        liberarMemoria(nodo->derecha);
+
+        // Liberar lista de canciones
+        Cancion* actual = nodo->listaCanciones;
+        while (actual) {
+            Cancion* siguiente = actual->siguiente;
+            delete actual;
+            actual = siguiente;
+        }
+
+        delete nodo;
+    }
+	Album* buscar(Album* nodo, const std::string& titulo) {
+    if (!nodo || nodo->titulo == titulo)
+        return nodo;
+    if (titulo < nodo->titulo)
+        return buscar(nodo->izquierda, titulo);
+    return buscar(nodo->derecha, titulo);
+}
+
+    // ---- Funciones nuevas para eliminación ----
+
+    Album* minValueNode(Album* nodo) {
+        Album* current = nodo;
+        while (current && current->izquierda != nullptr)
+             current = current->izquierda;
+        return current;
+    }
+
+    void liberarAlbumRecursos(Album* album) {
+        Cancion* actual = album->listaCanciones;
+        while (actual) {
+            Cancion* siguiente = actual->siguiente;
+            delete actual;
+            actual = siguiente;
+        }
+        album->listaCanciones = nullptr;
+    }
+
+    Album* eliminar(Album* nodo, const std::string& titulo) {
+        if (!nodo) return nodo;
+
+        if (titulo < nodo->titulo) {
+            nodo->izquierda = eliminar(nodo->izquierda, titulo);
+        } else if (titulo > nodo->titulo) {
+            nodo->derecha = eliminar(nodo->derecha, titulo);
+        } else {
+            // Nodo a eliminar encontrado
+            if (nodo->izquierda == nullptr || nodo->derecha == nullptr) {
+                Album* temp = nodo->izquierda ? nodo->izquierda : nodo->derecha;
+                liberarAlbumRecursos(nodo);
+                delete nodo;
+                return temp;
+            } else {
+                Album* temp = minValueNode(nodo->derecha);
+                nodo->titulo = temp->titulo;
+                nodo->nombreArtistico = temp->nombreArtistico;
+                nodo->anioPublicacion = temp->anioPublicacion;
+                std::swap(nodo->listaCanciones, temp->listaCanciones);
+                nodo->derecha = eliminar(nodo->derecha, temp->titulo);
+            }
+        }
+        
+        if (!nodo) return nodo;
+        
+        nodo->altura = 1 + std::max(altura(nodo->izquierda), altura(nodo->derecha));
+        int balanceFactor = balance(nodo);
+        
+        if (balanceFactor > 1 && balance(nodo->izquierda) >= 0)
+            return rotacionDerecha(nodo);
+        if (balanceFactor > 1 && balance(nodo->izquierda) < 0) {
+            nodo->izquierda = rotacionIzquierda(nodo->izquierda);
+            return rotacionDerecha(nodo);
+        }
+        if (balanceFactor < -1 && balance(nodo->derecha) <= 0)
+            return rotacionIzquierda(nodo);
+        if (balanceFactor < -1 && balance(nodo->derecha) > 0) {
+            nodo->derecha = rotacionDerecha(nodo->derecha);
+            return rotacionIzquierda(nodo);
+        }
+        
+        return nodo;
+    }
+
+    // -------------------------------------------
+
+    void guardarRecursivo(Album* nodo, std::ofstream& archivo) {
+        bool existe = (nodo != nullptr);
+        archivo.write(reinterpret_cast<char*>(&existe), sizeof(existe));
+        if (!existe)
+            return;
+        
+        nodo->guardar(archivo);
+        guardarRecursivo(nodo->izquierda, archivo);
+        guardarRecursivo(nodo->derecha, archivo);
+    }
+
+    Album* cargarRecursivo(std::ifstream& archivo) {
+        bool existe;
+        archivo.read(reinterpret_cast<char*>(&existe), sizeof(existe));
+        if (!existe)
+            return nullptr;
+        
+        Album* nuevo = new Album();
+        nuevo->cargar(archivo);
+        nuevo->izquierda = cargarRecursivo(archivo);
+        nuevo->derecha = cargarRecursivo(archivo);
+        return nuevo;
     }
 
 public:
@@ -88,6 +194,7 @@ public:
     }
 
     Album* buscarAlbum(const std::string& titulo) {
+        // La función buscar se había definido previamente (ya corregida)
         return buscar(raiz, titulo);
     }
 
@@ -95,6 +202,11 @@ public:
         std::vector<Album*> resultado;
         inOrder(raiz, resultado);
         return resultado;
+    }
+
+    void liberarArbol() {
+        liberarMemoria(raiz);
+        raiz = nullptr;
     }
 
     void guardar(const std::string& filename) {
@@ -106,28 +218,15 @@ public:
         std::ifstream archivo(filename, std::ios::binary);
         if (!archivo) return;
         
+        liberarArbol(); // Liberar memoria antes de cargar
         raiz = cargarRecursivo(archivo);
     }
-
-private:
-    void guardarRecursivo(Album* nodo, std::ofstream& archivo) {
-        if (!nodo) return;
-        
-        nodo->guardar(archivo);
-        guardarRecursivo(nodo->izquierda, archivo);
-        guardarRecursivo(nodo->derecha, archivo);
-    }
-
-    Album* cargarRecursivo(std::ifstream& archivo) {
-        Album* nuevo = new Album();
-        nuevo->cargar(archivo);
-        
-        if (!archivo.eof()) {
-            nuevo->izquierda = cargarRecursivo(archivo);
-            nuevo->derecha = cargarRecursivo(archivo);
-        }
-        return nuevo;
+    
+    // Función pública para eliminar un álbum
+    void eliminarAlbum(const std::string& titulo) {
+        raiz = eliminar(raiz, titulo);
     }
 };
 
 #endif
+

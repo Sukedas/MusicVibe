@@ -5,6 +5,9 @@
 #include <string>
 #include <fstream>
 
+//--------------------------------------------------------
+// EnlacePlataforma
+//--------------------------------------------------------
 class EnlacePlataforma {
 public:
     std::string nombrePlataforma;
@@ -32,12 +35,16 @@ public:
     }
 };
 
+//--------------------------------------------------------
+// Artista
+//--------------------------------------------------------
 class Artista {
 public:
     std::string nombreReal;
     std::string nombreArtistico;
     std::string paisOrigen;
     std::string instrumento;
+    std::string rol; // nuevo
 
     void guardar(std::ofstream& archivo) {
         size_t size = nombreReal.size();
@@ -55,11 +62,14 @@ public:
         size = instrumento.size();
         archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
         archivo.write(instrumento.c_str(), size);
+        
+        size = rol.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(rol.c_str(), size);
     }
 
     void cargar(std::ifstream& archivo) {
         size_t size;
-        
         archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
         nombreReal.resize(size);
         archivo.read(&nombreReal[0], size);
@@ -75,14 +85,28 @@ public:
         archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
         instrumento.resize(size);
         archivo.read(&instrumento[0], size);
+        
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        rol.resize(size);
+        archivo.read(&rol[0], size);
     }
 };
 
+//--------------------------------------------------------
+// Version
+//--------------------------------------------------------
 class Version {
 public:
     std::string tituloVersion;
     std::string tipoVersion;
     std::vector<EnlacePlataforma> enlaces;
+
+    // Nuevos campos para la consulta 6:
+    std::string artistaPrincipal;
+    std::string genero;
+    int anioPublicacion;
+    std::string paisPublicacion;
+    std::string obraOriginal;
 
     void guardar(std::ofstream& archivo) {
         size_t size = tituloVersion.size();
@@ -96,11 +120,29 @@ public:
         size = enlaces.size();
         archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
         for (auto& e : enlaces) e.guardar(archivo);
+
+        // Guardar nuevos campos:
+        size = artistaPrincipal.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(artistaPrincipal.c_str(), size);
+
+        size = genero.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(genero.c_str(), size);
+
+        archivo.write(reinterpret_cast<char*>(&anioPublicacion), sizeof(anioPublicacion));
+
+        size = paisPublicacion.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(paisPublicacion.c_str(), size);
+
+        size = obraOriginal.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(obraOriginal.c_str(), size);
     }
 
     void cargar(std::ifstream& archivo) {
         size_t size;
-        
         archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
         tituloVersion.resize(size);
         archivo.read(&tituloVersion[0], size);
@@ -112,9 +154,31 @@ public:
         archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
         enlaces.resize(size);
         for (auto& e : enlaces) e.cargar(archivo);
+
+        // Cargar nuevos campos:
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        artistaPrincipal.resize(size);
+        archivo.read(&artistaPrincipal[0], size);
+
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        genero.resize(size);
+        archivo.read(&genero[0], size);
+
+        archivo.read(reinterpret_cast<char*>(&anioPublicacion), sizeof(anioPublicacion));
+
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        paisPublicacion.resize(size);
+        archivo.read(&paisPublicacion[0], size);
+
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        obraOriginal.resize(size);
+        archivo.read(&obraOriginal[0], size);
     }
 };
 
+//--------------------------------------------------------
+// Cancion
+//--------------------------------------------------------
 class Cancion {
 public:
     std::string nombreCancion;
@@ -122,6 +186,11 @@ public:
     std::vector<Version> versiones;
     std::vector<EnlacePlataforma> enlaces;
     int duracion;
+
+    // Nuevos campos para consultas 4, 5 y 10:
+    std::string genero;
+    int anioGrabacion;
+
     Cancion* siguiente;
 
     Cancion() : siguiente(nullptr) {}
@@ -144,11 +213,17 @@ public:
         size = enlaces.size();
         archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
         for (auto& e : enlaces) e.guardar(archivo);
+
+        // Guardar nuevos campos:
+        size = genero.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(genero.c_str(), size);
+
+        archivo.write(reinterpret_cast<char*>(&anioGrabacion), sizeof(anioGrabacion));
     }
 
     void cargar(std::ifstream& archivo) {
         size_t size;
-        
         archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
         nombreCancion.resize(size);
         archivo.read(&nombreCancion[0], size);
@@ -166,18 +241,39 @@ public:
         archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
         enlaces.resize(size);
         for (auto& e : enlaces) e.cargar(archivo);
+
+        // Cargar nuevos campos:
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        genero.resize(size);
+        archivo.read(&genero[0], size);
+
+        archivo.read(reinterpret_cast<char*>(&anioGrabacion), sizeof(anioGrabacion));
     }
 };
 
+//--------------------------------------------------------
+// Album
+//--------------------------------------------------------
 class Album {
 public:
     std::string titulo;
     std::string nombreArtistico;
     int anioPublicacion;
+    
+    // Miembros para las canciones y para el árbol AVL:
     Cancion* listaCanciones;
     Album* izquierda;
     Album* derecha;
-    int altura; // Agregar este atributo
+    int altura;
+
+    // Nuevos campos para las consultas:
+    std::string editora;
+    std::string estudioGrabacion;
+    std::string paisGrabacion;
+    std::string ciudadGrabacion;
+    std::string encargadoFotografia;
+    std::string encargadoCoverArt;
+    std::vector<EnlacePlataforma> enlacesAlbum;
 
     Album() : listaCanciones(nullptr), izquierda(nullptr), derecha(nullptr), altura(1) {}
 
@@ -191,21 +287,50 @@ public:
         archivo.write(nombreArtistico.c_str(), size);
         
         archivo.write(reinterpret_cast<char*>(&anioPublicacion), sizeof(anioPublicacion));
-        
-        // Guardar canciones como lista enlazada
+
+        // Guardar nuevos campos:
+        size = editora.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(editora.c_str(), size);
+
+        size = estudioGrabacion.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(estudioGrabacion.c_str(), size);
+
+        size = paisGrabacion.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(paisGrabacion.c_str(), size);
+
+        size = ciudadGrabacion.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(ciudadGrabacion.c_str(), size);
+
+        size = encargadoFotografia.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(encargadoFotografia.c_str(), size);
+
+        size = encargadoCoverArt.size();
+        archivo.write(reinterpret_cast<char*>(&size), sizeof(size));
+        archivo.write(encargadoCoverArt.c_str(), size);
+
+        // Guardar lista de canciones: primero la cantidad y luego cada una
+        int numCanciones = 0;
         Cancion* actual = listaCanciones;
+        while (actual) {
+            numCanciones++;
+            actual = actual->siguiente;
+        }
+        archivo.write(reinterpret_cast<char*>(&numCanciones), sizeof(numCanciones));
+        
+        actual = listaCanciones;
         while (actual) {
             actual->guardar(archivo);
             actual = actual->siguiente;
         }
-        // Marcar fin de lista
-        bool fin = true;
-        archivo.write(reinterpret_cast<char*>(&fin), sizeof(fin));
     }
 
     void cargar(std::ifstream& archivo) {
         size_t size;
-        
         archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
         titulo.resize(size);
         archivo.read(&titulo[0], size);
@@ -215,20 +340,51 @@ public:
         archivo.read(&nombreArtistico[0], size);
         
         archivo.read(reinterpret_cast<char*>(&anioPublicacion), sizeof(anioPublicacion));
+
+        // Cargar nuevos campos:
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        editora.resize(size);
+        archivo.read(&editora[0], size);
+
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        estudioGrabacion.resize(size);
+        archivo.read(&estudioGrabacion[0], size);
+
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        paisGrabacion.resize(size);
+        archivo.read(&paisGrabacion[0], size);
+
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        ciudadGrabacion.resize(size);
+        archivo.read(&ciudadGrabacion[0], size);
+
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        encargadoFotografia.resize(size);
+        archivo.read(&encargadoFotografia[0], size);
+
+        archivo.read(reinterpret_cast<char*>(&size), sizeof(size));
+        encargadoCoverArt.resize(size);
+        archivo.read(&encargadoCoverArt[0], size);
+
+        // Cargar lista de canciones
+        int numCanciones;
+        archivo.read(reinterpret_cast<char*>(&numCanciones), sizeof(numCanciones));
         
-        // Cargar canciones
-        bool fin;
         Cancion* ultima = nullptr;
-        do {
+        listaCanciones = nullptr;
+        for (int i = 0; i < numCanciones; i++) {
             Cancion* nueva = new Cancion();
             nueva->cargar(archivo);
-            archivo.read(reinterpret_cast<char*>(&fin), sizeof(fin));
-            
-            if (!listaCanciones) listaCanciones = nueva;
-            else ultima->siguiente = nueva;
+            nueva->siguiente = nullptr;
+            if (!listaCanciones) {
+                listaCanciones = nueva;
+            } else {
+                ultima->siguiente = nueva;
+            }
             ultima = nueva;
-        } while (!fin);
+        }
     }
 };
 
 #endif
+
